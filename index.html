@@ -2,23 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Skrapp Result</title>
+    <title>Skrapp Data</title>
 </head>
 <body>
-    <h1>Skrapp Result</h1>
-    <p id="result">Fetching result...</p>
+    <pre id="output"></pre>
     <script>
-        fetch('https://skrapp-worker.hentel-huang.workers.dev/')
-            .then(response => {
-                if (!response.ok) throw new Error('Fetch failed: ' + response.status);
-                return response.text(); // Use .json() if the endpoint returns JSON
-            })
-            .then(data => {
-                document.getElementById('result').textContent = data;
-            })
-            .catch(error => {
-                document.getElementById('result').textContent = 'Error: ' + error.message;
-            });
+        async function fetchData() {
+            const url = "https://skrapp-worker.hentel-huang.workers.dev/";
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
+                const timestamp = new Date().toISOString().replace(/T/, '-').replace(/:|\.\d+Z/g, '');
+                document.getElementById("output").textContent = `${timestamp}\n${text}`;
+            } catch (error) {
+                console.error("Error:", error);
+                document.getElementById("output").textContent = "Failed to fetch data.";
+            }
+        }
+        fetchData();
     </script>
 </body>
 </html>
