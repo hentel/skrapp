@@ -2,15 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Skrapp Redirect</title>
-    <script>
-        // Redirect immediately when the page loads
-        window.location.href = 'https://skrapp-worker.hentel-huang.workers.dev/';
-    </script>
+    <title>Skrapp Result</title>
 </head>
 <body>
-    <h1>Redirecting...</h1>
-    <!-- Fallback link if JavaScript is disabled -->
-    <p>If you are not redirected, <a href="https://skrapp-worker.hentel-huang.workers.dev/">click here</a>.</p>
+    <h1>Skrapp Result</h1>
+    <p id="result">Fetching result...</p>
+    <script>
+        fetch('https://skrapp-worker.hentel-huang.workers.dev/')
+            .then(response => {
+                if (!response.ok) throw new Error('Fetch failed: ' + response.status);
+                return response.text(); // Use .json() if the endpoint returns JSON
+            })
+            .then(data => {
+                document.getElementById('result').textContent = data;
+            })
+            .catch(error => {
+                document.getElementById('result').textContent = 'Error: ' + error.message;
+            });
+    </script>
 </body>
 </html>
