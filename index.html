@@ -1,125 +1,90 @@
-<!-- index.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Server List Decoder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #output {
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
-    <button onclick="fetchAndDecrypt()">Get Server List</button>
-    <pre id="output"></pre>
+    <h1>Server List Decoder</h1>
+    <button onclick="fetchAndDecode()">Fetch and Decode Servers</button>
+    <div id="output"></div>
 
+    <!-- Include CryptoJS from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
-        async function decryptAES128CBC(ciphertext, key, iv) {
-            try {
-                // Convert hex string to ArrayBuffer
-                const encryptedBytes = new Uint8Array(
-                    ciphertext.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
-                );
+        // Display current date and time
+        const now = new Date();
+        document.getElementById('output').textContent = now.toISOString().replace(/T/, '-').replace(/Z/, '').split('.')[0] + '\n\n';
 
-                // Convert key and IV from strings to ArrayBuffers
-                const keyBytes = new TextEncoder().encode(key);
-                const ivBytes = new TextEncoder().encode(iv);
+        // Constants from the Python script
+        const apiUrl = 'http://api.skrapp.net/api/serverlist';
+        const headers = {
+            'accept': '/',
+            'accept-language': 'zh-Hans-CN;q=1, en-CN;q=0.9',
+            'appversion': '1.3.1',
+            'user-agent': 'SkrKK/1.3.1 (iPhone; iOS 13.5; Scale/2.00)',
+            'content-type': 'application/x-www-form-urlencoded',
+            'Cookie': 'PHPSESSID=fnffo1ivhvt0ouo6ebqn86a0d4'
+        };
+        const postData = 'data=4265a9c353cd8624fd2bc7b5d75d2f18b1b5e66ccd37e2dfa628bcb8f73db2f14ba98bc6a1d8d0d1c7ff1ef0823b11264d0addaba2bd6a30bdefe06f4ba994ed';
+        const key = CryptoJS.enc.Utf8.parse('65151f8d966bf596'); // 16-byte key
+        const iv = CryptoJS.enc.Utf8.parse('88ca0f0ea1ecf975');  // 16-byte IV
 
-                // Import key for Web Crypto
-                const cryptoKey = await crypto.subtle.importKey(
-                    "raw",
-                    keyBytes,
-                    { name: "AES-CBC" },
-                    false,
-                    ["decrypt"]
-                );
-
-                // Decrypt
-                const decrypted = await crypto.subtle.decrypt(
-                    { name: "AES-CBC", iv: ivBytes },
-                    cryptoKey,
-                    encryptedBytes
-                );
-
-                // Convert to Uint8Array and remove padding
-                const decryptedBytes = new Uint8Array(decrypted);
-                const paddingLength = decryptedBytes[decryptedBytes.length - 1];
-                if (paddingLength > 0 && paddingLength <= 16) {
-                    return decryptedBytes.slice(0, -paddingLength);
-                }
-                return decryptedBytes;
-            } catch (err) {
-                console.error('Decryption error:', err.message);
-                return null;
-            }
+        // Decryption function (equivalent to Python's f())
+        function decryptData(encryptedHex) {
+            const encryptedBytes = CryptoJS.enc.Hex.parse(encryptedHex);
+            const decipher = CryptoJS.AES.decrypt(
+                { ciphertext: encryptedBytes },
+                key,
+                { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+            );
+            return decipher.toString(CryptoJS.enc.Utf8);
         }
 
-        async function fetchAndDecrypt() {
-            const outputElement = document.getElementById('output');
-            outputElement.textContent = 'Fetching...';
+        // Base64 encoding function
+        function base64Encode(str) {
+            return btoa(str);
+        }
 
-            const url = 'http://api.skrapp.net/api/serverlist';
-            const headers = {
-                'accept': '/',
-                'accept-language': 'zh-Hans-CN;q=1, en-CN;q=0.9',
-                'appversion': '1.3.1',
-                'user-agent': 'SkrKK/1.3.1 (iPhone; iOS 13.5; Scale/2.00)',
-                'content-type': 'application/x-www-form-urlencoded',
-                'Cookie': 'PHPSESSID=fnffo1ivhvt0ouo6ebqn86a0d4'
-            };
-            const body = 'data=4265a9c353cd8624fd2bc7b5d75d2f18b1b5e66ccd37e2dfa628bcb8f73db2f14ba98bc6a1d8d0d1c7ff1ef0823b11264d0addaba2bd6a30bdefe06f4ba994ed';
-            const key = '65151f8d966bf596';
-            const iv = '88ca0f0ea1ecf975';
-
+        // Main function to fetch and decode
+        async function fetchAndDecode() {
             try {
-                const response = await fetch(url, {
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: headers,
-                    body: body,
-                    mode: 'cors',
-                    credentials: 'include'
+                    body: postData
                 });
 
                 if (response.ok) {
-                    const rawText = await response.text();
-                    const trimmedText = rawText.trim();
+                    const encryptedText = await response.text();
+                    const encryptedHex = encryptedText.trim();
+                    const decryptedData = decryptData(encryptedHex);
+                    const serverData = JSON.parse(decryptedData);
 
-                    const decryptedBytes = await decryptAES128CBC(trimmedText, key, iv);
-                    if (!decryptedBytes) {
-                        outputElement.textContent = 'Decryption failed';
-                        return;
-                    }
-
-                    const decryptedStr = new TextDecoder().decode(decryptedBytes);
-                    let result = '';
-
-                    try {
-                        const parsedData = JSON.parse(decryptedStr);
-                        
-                        // Generate UTC timestamp
-                        const now = new Date();
-                        const timestamp = now.getUTCFullYear() + '-' +
-                            String(now.getUTCMonth() + 1).padStart(2, '0') + '-' +
-                            String(now.getUTCDate()).padStart(2, '0') + '-' +
-                            String(now.getUTCHours()).padStart(2, '0') + '-' +
-                            String(now.getUTCMinutes()).padStart(2, '0') + '-' +
-                            String(now.getUTCSeconds()).padStart(2, '0');
-                        
-                        result += `${timestamp}\n`;
-
-                        // Add Shadowsocks URLs
-                        for (const server of parsedData.data) {
-                            const serverStr = `aes-256-cfb:${server.password}@${server.ip}:${server.port}`;
-                            const base64Str = btoa(serverStr);
-                            const ssUrl = `ss://${base64Str}#${server.title}`;
-                            result += ssUrl + '\n';
-                        }
-
-                        outputElement.textContent = result.trim();
-                    } catch (jsonErr) {
-                        outputElement.textContent = `JSON Parse Error: ${jsonErr.message}\nData: ${decryptedStr}`;
-                    }
+                    let output = document.getElementById('output').textContent;
+                    serverData.data.forEach(server => {
+                        const ssString = `aes-256-cfb:${server.password}@${server.ip}:${server.port}`;
+                        const encoded = base64Encode(ssString);
+                        const result = `ss://${encoded}#${server.title}`;
+                        output += result + '\n';
+                    });
+                    document.getElementById('output').textContent = output;
                 } else {
-                    outputElement.textContent = `API request failed with status: ${response.status}`;
+                    document.getElementById('output').textContent += 'Failed to fetch data: ' + response.status + '\n';
                 }
             } catch (error) {
-                outputElement.textContent = `Error: ${error.message}`;
+                document.getElementById('output').textContent += 'Error: ' + error.message + '\n';
             }
         }
     </script>
