@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Skrapp Data</title>
+</head>
+<body>
+    <pre id="output"></pre>
+    <script>
+        async function fetchData() {
+            const url = "https://skrapp-worker.hentel-huang.workers.dev/";
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
+                const timestamp = new Date().toISOString().replace(/T/, '-').replace(/:|\.\d+Z/g, '');
+                document.getElementById("output").textContent = `${timestamp}\n${text}`;
+            } catch (error) {
+                console.error("Error:", error);
+                document.getElementById("output").textContent = "Failed to fetch data.";
+            }
+        }
+        fetchData();
+    </script>
+</body>
+</html>
